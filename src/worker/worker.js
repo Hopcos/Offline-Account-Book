@@ -325,10 +325,20 @@ var HANDLERS = {
 
   /* ---- 统计 ---- */
   stats: function () {
+    var s = queryOne([
+      'SELECT COUNT(*) AS cnt,',
+      '  COALESCE(SUM(amount_cents), 0) AS total_cents,',
+      '  COALESCE(SUM(CASE WHEN paid = 1 THEN amount_cents ELSE 0 END), 0) AS paid_cents',
+      'FROM records'
+    ].join('\n')) || { cnt: 0, total_cents: 0, paid_cents: 0 };
     return {
       moduleCount: scalar('SELECT COUNT(*) FROM modules'),
-      recordCount: scalar('SELECT COUNT(*) FROM records'),
-      dbBytes: db.export().length
+      recordCount: s.cnt,
+      dbBytes: db.export().length,
+      /* 全部模块的汇总（记账模块页顶部金额条） */
+      totalCents: s.total_cents,
+      paidCents: s.paid_cents,
+      unpaidCents: s.total_cents - s.paid_cents
     };
   },
 

@@ -177,7 +177,7 @@ async function main() {
     await cdp.send('Runtime.enable');
     await cdp.send('Log.enable');
 
-    console.log('[1/13] 启动应用');
+    console.log('[1/14] 启动应用');
     await cdp.send('Page.navigate', { url: PAGE_URL });
     const bootState = await cdp.waitFor(
       `document.getElementById('app') && !document.getElementById('app').hidden ? 'ready'
@@ -189,7 +189,7 @@ async function main() {
     await cdp.waitFor(`document.querySelector('.empty') && document.querySelector('.empty').textContent.indexOf('还没有记账模块') >= 0`, 5000, '空状态');
     ok('空状态展示正确');
 
-    console.log('[2/13] 新建记账模块');
+    console.log('[2/14] 新建记账模块');
     await cdp.eval(`document.getElementById('fab').click()`);
     await cdp.waitFor(`!!document.querySelector('.sheet')`, 3000, '弹层打开');
     await cdp.eval(`
@@ -200,7 +200,7 @@ async function main() {
     const modName = await cdp.eval(`document.querySelector('.mc-name').textContent`);
     modName === '日常开销' ? ok('模块已创建并展示名称') : fail('模块名称', modName);
 
-    console.log('[3/13] 记两笔明细（校验排序与汇总）');
+    console.log('[3/14] 记两笔明细（校验排序与汇总）');
     const modId = await cdp.eval(`document.querySelector('.module-card').dataset.id`);
     await cdp.eval(`location.hash = '#/m/' + encodeURIComponent('${modId}')`);
     await cdp.waitFor(`document.querySelector('.summary') && document.getElementById('fab') && !document.getElementById('fab').hidden`, 5000, '明细页');
@@ -243,7 +243,16 @@ async function main() {
     cols === '大类,子类,名称,金额,是否支付,日期'
       ? ok('六列齐全') : fail('表头列', cols);
 
-    console.log('[4/13] 设置页与主题');
+    // 返回首页：模块页顶部应显示各模块的全局汇总
+    console.log('[4/14] 模块页顶部全局汇总');
+    await cdp.eval(`location.hash = '#/'`);
+    await cdp.waitFor(`document.querySelectorAll('.module-card').length === 1 && !!document.querySelector('.module-list')`, 5000, '返回模块页');
+    const homeSums = await cdp.eval(`[...document.querySelectorAll('.summary .sum-card')].map(c => c.querySelector('label').textContent + '=' + c.querySelector('b').textContent).join('|')`);
+    homeSums === '总金额=¥17.34|已支付=¥12.34|未支付=¥5.00'
+      ? ok('模块页顶部汇总正确：总 17.34 / 已付 12.34 / 未付 5.00')
+      : fail('模块页汇总', homeSums);
+
+    console.log('[5/14] 设置页与主题');
     await cdp.eval(`location.hash = '#/settings'`);
     await cdp.waitFor(`!!document.querySelector('.set-section')`, 5000, '设置页');
     // 未绑定文件时必须明确提示"数据存于本地缓存、index.html 不会变化"，且给出绑定入口
@@ -263,7 +272,7 @@ async function main() {
     const theme = await cdp.eval(`document.documentElement.dataset.theme`);
     theme === 'dark' ? ok('主题切换为深色') : fail('主题', theme);
 
-    console.log('[5/13] 刷新恢复（数据 + 状态）');
+    console.log('[6/14] 刷新恢复（数据 + 状态）');
     await sleep(2500); // 等待防抖持久化落盘（设置 400ms + 同步 500ms + 导出）
     const probe = await cdp.eval(`(async function(){
       var before = Object.keys(localStorage);
@@ -288,7 +297,7 @@ async function main() {
     const restored = await cdp.eval(`(location.hash + '|' + document.documentElement.dataset.theme)`);
     restored === '#/settings|dark' ? ok('路由与主题状态已恢复') : fail('状态恢复', restored);
 
-    console.log('[6/13] 刷新后数据完整性');
+    console.log('[7/14] 刷新后数据完整性');
     await cdp.eval(`location.hash = '#/'`);
     await cdp.waitFor(`!!document.querySelector('.module-card')`, 5000, '模块列表恢复');
     const amount = await cdp.eval(`document.querySelector('.mc-amount').textContent`);
@@ -297,7 +306,7 @@ async function main() {
     await cdp.waitFor(`document.querySelectorAll('tr.item').length === 2`, 5000, '明细恢复');
     ok('刷新后 2 条明细完整恢复');
 
-    console.log('[7/13] 拖拽排序（Pointer 事件驱动 + 持久化）');
+    console.log('[8/14] 拖拽排序（Pointer 事件驱动 + 持久化）');
     await cdp.eval(`location.hash = '#/'`);
     await cdp.waitFor(`!!document.querySelector('.module-card')`, 5000, '模块页');
     await cdp.eval(`document.getElementById('fab').click()`);
@@ -345,7 +354,7 @@ async function main() {
     const names2 = await cdp.eval(`[...document.querySelectorAll('.mc-name')].map(n => n.textContent).join('|')`);
     names2 === '旅行基金|日常开销' ? ok('新顺序已持久化（刷新不丢）') : fail('排序持久化', names2);
 
-    console.log('[8/13] 数据写入 HTML 文件后从内嵌数据区恢复');
+    console.log('[9/14] 数据写入 HTML 文件后从内嵌数据区恢复');
     const b64 = await cdp.eval(`(function(){
       var r = JSON.parse(localStorage.getItem('adb.db.v1') || 'null');
       if (!r) return '';
@@ -369,7 +378,7 @@ async function main() {
       ? ok('从 HTML 内嵌数据区完整恢复（含顺序与金额）')
       : fail('内嵌恢复', emb);
 
-    console.log('[9/13] 长按进入编辑 + 删除确认');
+    console.log('[10/14] 长按进入编辑 + 删除确认');
     await cdp.eval(`(function(){
       var card = document.querySelectorAll('.module-card')[0];
       function pe(type) {
@@ -396,7 +405,7 @@ async function main() {
     const left = await cdp.eval(`[...document.querySelectorAll('.mc-name')].map(n => n.textContent).join('|')`);
     left === '日常开销' ? ok('确认后仅剩「日常开销」') : fail('删除结果', left);
 
-    console.log('[10/13] 导出备份（下载内容校验）');
+    console.log('[11/14] 导出备份（下载内容校验）');
     await cdp.eval(`location.hash = '#/settings'`);
     await cdp.waitFor(`!!document.querySelector('.set-section')`, 5000, '设置页');
     await cdp.eval(`(function () {
@@ -422,7 +431,7 @@ async function main() {
       ? ok(`导出为合法 SQLite 备份（${(dl.len / 1024).toFixed(1)} KB，${dl.name}）`)
       : fail('导出备份', JSON.stringify(dl));
 
-    console.log('[11/13] 导入备份（UI 往返，升级更新不丢数据）');
+    console.log('[12/14] 导入备份（UI 往返，升级更新不丢数据）');
     await cdp.eval(`[...document.querySelectorAll('.set-row .btn')].find(b => b.textContent === '导入').click()`);
     await cdp.waitFor(`!!document.querySelector('input[type=file]')`, 3000, '导入文件选择器创建');
     await cdp.eval(`(async function () {
@@ -442,7 +451,7 @@ async function main() {
     const impAmt = await cdp.eval(`document.querySelector('.mc-amount').textContent`);
     impAmt === '¥17.34' ? ok('导入往返成功，数据完整（¥17.34）') : fail('导入结果', impAmt);
 
-    console.log('[12/13] 清理数据（两步二次确认）');
+    console.log('[13/14] 清理数据（两步二次确认）');
     await cdp.eval(`location.hash = '#/settings'`);
     await cdp.waitFor(`!!document.querySelector('.set-section')`, 5000, '设置页');
     await cdp.eval(`[...document.querySelectorAll('.set-row .btn')].find(b => b.textContent === '清理').click()`);
@@ -463,7 +472,7 @@ async function main() {
       ? ok('清理完成，回到空状态')
       : fail('清理结果', emptied);
 
-    console.log('[13/13] 添加到桌面（应用名 / LOGO 图标 / PWA Manifest）');
+    console.log('[14/14] 添加到桌面（应用名 / LOGO 图标 / PWA Manifest）');
     // ① file:// 环境不可直接安装 → 按钮应给出平台指引
     await cdp.eval(`location.hash = '#/settings'`);
     await cdp.waitFor(

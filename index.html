@@ -1158,10 +1158,20 @@ var HANDLERS = {
 
   /* ---- 统计 ---- */
   stats: function () {
+    var s = queryOne([
+      'SELECT COUNT(*) AS cnt,',
+      '  COALESCE(SUM(amount_cents), 0) AS total_cents,',
+      '  COALESCE(SUM(CASE WHEN paid = 1 THEN amount_cents ELSE 0 END), 0) AS paid_cents',
+      'FROM records'
+    ].join('\n')) || { cnt: 0, total_cents: 0, paid_cents: 0 };
     return {
       moduleCount: scalar('SELECT COUNT(*) FROM modules'),
-      recordCount: scalar('SELECT COUNT(*) FROM records'),
-      dbBytes: db.export().length
+      recordCount: s.cnt,
+      dbBytes: db.export().length,
+      /* 全部模块的汇总（记账模块页顶部金额条） */
+      totalCents: s.total_cents,
+      paidCents: s.paid_cents,
+      unpaidCents: s.total_cents - s.paid_cents
     };
   },
 
@@ -2233,7 +2243,7 @@ self.onmessage = function (e) {
 
   /* ================= 9. 视图：记账模块 ================= */
   async function renderModules(seq) {
-    const st = await db.call('getState');
+    const [st, agg] = await Promise.all([db.call('getState'), db.call('stats')]);
     if (seq !== renderSeq) return;
     applyState(st);
     document.title = APP_NAME;
@@ -2263,6 +2273,13 @@ self.onmessage = function (e) {
         h('button', { class: 'btn btn-primary', text: '＋ 新建模块', onClick: () => moduleSheet(null) })));
       return;
     }
+
+    // 顶部金额汇总：所有模块全部明细的 总金额 / 已支付 / 未支付
+    view.append(h('div', { class: 'summary' },
+      h('div', { class: 'sum-card total' }, h('label', { text: '总金额' }), h('b', { text: fmt(agg.totalCents) })),
+      h('div', { class: 'sum-card paid' }, h('label', { text: '已支付' }), h('b', { text: fmt(agg.paidCents) })),
+      h('div', { class: 'sum-card unpaid' }, h('label', { text: '未支付' }), h('b', { text: fmt(agg.unpaidCents) }))
+    ));
 
     const list = h('ul', { class: 'module-list' });
     state.modules.forEach((m) => list.append(moduleCard(m)));

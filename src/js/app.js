@@ -975,7 +975,7 @@
 
   /* ================= 9. 视图：记账模块 ================= */
   async function renderModules(seq) {
-    const st = await db.call('getState');
+    const [st, agg] = await Promise.all([db.call('getState'), db.call('stats')]);
     if (seq !== renderSeq) return;
     applyState(st);
     document.title = APP_NAME;
@@ -1005,6 +1005,13 @@
         h('button', { class: 'btn btn-primary', text: '＋ 新建模块', onClick: () => moduleSheet(null) })));
       return;
     }
+
+    // 顶部金额汇总：所有模块全部明细的 总金额 / 已支付 / 未支付
+    view.append(h('div', { class: 'summary' },
+      h('div', { class: 'sum-card total' }, h('label', { text: '总金额' }), h('b', { text: fmt(agg.totalCents) })),
+      h('div', { class: 'sum-card paid' }, h('label', { text: '已支付' }), h('b', { text: fmt(agg.paidCents) })),
+      h('div', { class: 'sum-card unpaid' }, h('label', { text: '未支付' }), h('b', { text: fmt(agg.unpaidCents) }))
+    ));
 
     const list = h('ul', { class: 'module-list' });
     state.modules.forEach((m) => list.append(moduleCard(m)));
