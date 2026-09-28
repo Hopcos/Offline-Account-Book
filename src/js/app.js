@@ -17,6 +17,7 @@
   const DB_CACHE_KEY = 'adb.db.v1';     // 数据库镜像（localStorage，刷新恢复）
   const HANDLE_KEY = 'html-handle';     // FileSystemFileHandle（IndexedDB）
   const VERSION = '1.0.0';
+  const PAGE_LOADED_AT = Date.now();    // 用于 Chrome"用户互动门槛"（约 30 秒）自检
   const APP_NAME = '个人记账';          // “添加到桌面”后的应用名称（Manifest / meta 保持一致）
 
   /** HTML 数据区正则（注意："<\/script" 写法避免内联脚本被提前闭合） */
@@ -192,6 +193,7 @@
     e.preventDefault();         // 接管安装提示，改由设置页按钮触发
     deferredInstall = e;
     if (state.route && state.route.name === 'settings') render();
+    if (!isInstalled()) toast('系统安装程序已就绪，点击「添加到桌面」即可');
   });
   window.addEventListener('appinstalled', () => {
     deferredInstall = null;
@@ -270,6 +272,8 @@
     if (link) link.href = url;
     const apple = document.getElementById('apple-touch-icon');
     if (apple) apple.href = icon192;
+    const fav = document.getElementById('favicon-link');
+    if (fav) fav.href = icon192;
     const tc = document.querySelector('meta[name="theme-color"]');
     if (tc) tc.setAttribute('content', bg);
   }
@@ -359,6 +363,12 @@
         ok: !!manifestJson,
         okText: '应用描述已生成：名称「' + APP_NAME + '」+ 设置页 LOGO 图标',
         badText: '应用描述（Manifest）尚未生成'
+      },
+      {
+        ok: Date.now() - PAGE_LOADED_AT >= 28000,
+        okText: '页面已打开约 ' + Math.round((Date.now() - PAGE_LOADED_AT) / 1000) + ' 秒（满足 Chrome 互动门槛）',
+        badText: '页面仅打开了 ' + Math.max(1, Math.round((Date.now() - PAGE_LOADED_AT) / 1000)) +
+          ' 秒 —— Chrome 需约 30 秒使用时长后才派发安装事件，请留在本页稍候再点「添加」'
       }
     ];
   }
@@ -381,6 +391,12 @@
         '① npx surge ./ 一键发布到免费 HTTPS（最简单）；' +
         '② 本仓库运行 npm run lan，手机访问 https://电脑IP:8443（需信任一次根证书 .cert/rootCA.pem）；' +
         '③ 安卓手机+数据线：npm run serve 后执行 adb reverse tcp:8000 tcp:8000，手机打开 http://localhost:8000。';
+    } else if (checks[0].ok && checks[1].ok && checks[3].ok && !checks[2].ok && checks[4].ok) {
+      conclusion = '地址、浏览器接口、应用描述、使用时长均已满足，但系统安装事件仍未派发。按可能性排查：' +
+        '① 国行手机缺少 Google 服务（GMS）—— 安卓的网页直装（WebAPK）依赖 Google Play，无 GMS 时 Chrome 不会派发安装事件。此时请改用浏览器菜单「添加到主屏幕 / 安装应用」：本页已把图标与名称（「' +
+        APP_NAME + '」+ 你的 LOGO）配置好，菜单添加的效果等同桌面入口；' +
+        '② 当前浏览器内核不支持安装事件：换用 Chrome / Edge / Samsung Internet 重新打开本页再点添加；' +
+        '③ 个别版本 Chrome 要求页面被访问过两次：完全关闭本页重新打开一次，再试。';
     } else {
       conclusion = '当前浏览器未向网页开放「直接安装」接口 —— 任何网页都无法绕过系统安全限制直接写入桌面图标，只能换用支持标准安装接口的浏览器（Chrome / Edge / Samsung Internet 等）；届时本按钮将一键直装，全程无需浏览器菜单。';
     }

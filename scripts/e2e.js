@@ -480,8 +480,8 @@ async function main() {
       var rows = [...document.querySelectorAll('.install-check')].map(r => r.className);
       return JSON.stringify(rows);
     })()`));
-    checks.length === 4 && /^install-check bad/.test(checks[0])
-      ? ok('能力自检 4 项，准确定位 file:// 卡点')
+    checks.length === 5 && /^install-check bad/.test(checks[0])
+      ? ok('能力自检 5 项，准确定位 file:// 卡点')
       : fail('能力自检', JSON.stringify(checks));
     await cdp.eval(`[...document.querySelectorAll('.modal-foot .btn')].find(b => b.textContent === '知道了').click()`);
     await cdp.waitFor(`!document.querySelector('.modal')`, 3000, '关闭指引');
@@ -522,9 +522,13 @@ async function main() {
     // 一键直装能力：等 beforeinstallprompt 就绪，自检 4 项必须全部通过
     await cdp.waitFor(`__ADB__.install.state === 'ready'`, 6000, '系统安装事件就绪');
     const httpChecks = JSON.parse(await cdp.eval(`JSON.stringify(__ADB__.install.checks)`));
-    httpChecks.length === 4 && httpChecks.every(c => c.ok)
+    httpChecks.length === 5 && httpChecks.slice(0, 4).every(c => c.ok)
       ? ok('能力自检全绿：点击即可直接弹出系统安装框（一键到桌面）')
       : fail('能力自检', JSON.stringify(httpChecks));
+    // 第 5 项"使用时长"（Chrome ~30s 互动门槛）：此时页面已运行足够久应为 ok，否则至少是 ok/红提示存在
+    (httpChecks[4].ok === true || /30 秒|稍候/.test(httpChecks[4].badText || ''))
+      ? ok('Chrome 30 秒互动门槛自检项正常')
+      : fail('互动门槛自检', JSON.stringify(httpChecks[4]));
     const t13 = await cdp.eval(`document.title`);
     t13.indexOf('个人记账') >= 0 ? ok('页面标题为「个人记账」') : fail('页面标题', t13);
     let instErrs = [];
