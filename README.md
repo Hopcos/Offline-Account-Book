@@ -54,6 +54,11 @@
 ### 方式 1：直接打开（最简单）
 双击或用浏览器打开根目录的 **`index.html`** 即可使用，无需服务器、无需联网。
 
+> ⚠️ **数据存在哪里？** 首次打开时 HTML 内的数据区是空的。**默认情况下新数据只保存在浏览器本地缓存
+>（localStorage）中，index.html 文件大小不会变化**。要让数据真正内嵌进 HTML 文件，请进入
+> **设置 → 数据与同步 → 绑定 HTML 文件**，在文件选择器中选中本 `index.html`：
+> 绑定成功的瞬间就会写入一次（文件大小立即变化），之后每次改动约 0.5 秒后自动写回。
+
 ### 方式 2：本地静态服务（推荐，文件写回体验最佳）
 ```bash
 # 任选其一
@@ -335,6 +340,19 @@ A: 浏览器回收了文件访问权限。点横幅或设置页的「重新授�
 
 **Q：数据存在哪里？会上传吗？**
 A: 全程离线：数据只存在于 HTML 文件数据区与浏览器本地存储（localStorage/IndexedDB），无任何网络请求。
+
+**Q：添加了数据，但 index.html 文件大小一直没变——数据存到哪里去了？**
+A: 没有绑定文件时，数据不会写入 HTML，而是保存在**浏览器本地缓存**里（Win11 实际路径）：
+
+| 内容 | 位置 |
+| --- | --- |
+| 数据库整库镜像 `adb.db.v1` + 状态快照 `adb.ui.v1` | Edge：`C:\Users\<用户名>\AppData\Local\Microsoft\Edge\User Data\Default\Local Storage\leveldb\`<br>Chrome：`C:\Users\<用户名>\AppData\Local\Google\Chrome\User Data\Default\Local Storage\leveldb\` |
+| 绑定文件的句柄 `html-handle`（绑定后才有） | 同上配置目录下的 `IndexedDB\` |
+| 内嵌数据区 `<script id="adb-data">` | 只有**绑定文件后**才会写入 `index.html` 本体 |
+
+所以"文件大小不变" = 还没绑定。设置 → 数据与同步 → **绑定 HTML 文件**（选中本 `index.html`）
+→ 立即写入一次，之后每次记账约 0.5 秒后自动写回。验证方法：绑定后给文件大小/修改日期变化，
+或用记事本打开搜 `adb-data`，能看到数据区的 base64 和 `<meta name="adb-saved-at">` 的最新时间戳。
 
 **Q：金额为什么以「分」存储？**
 A: 避免浮点累加误差（0.1+0.2 问题）；显示层再格式化为两位小数与千分位。

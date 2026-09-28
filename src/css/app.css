@@ -444,6 +444,14 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   border-radius: var(--radius); box-shadow: var(--shadow-1);
   padding: 4px 16px; margin-bottom: 14px;
 }
+.set-notice {
+  padding: 11px 14px; border-radius: 12px; margin: 8px 0 4px;
+  font-size: .84rem; line-height: 1.6; color: var(--text-2);
+}
+.set-notice.warn {
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+}
 .set-title {
   font-size: .78rem; font-weight: 700; color: var(--text-3);
   letter-spacing: .08em; margin: 20px 4px 8px;

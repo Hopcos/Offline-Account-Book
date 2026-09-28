@@ -485,6 +485,14 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   border-radius: var(--radius); box-shadow: var(--shadow-1);
   padding: 4px 16px; margin-bottom: 14px;
 }
+.set-notice {
+  padding: 11px 14px; border-radius: 12px; margin: 8px 0 4px;
+  font-size: .84rem; line-height: 1.6; color: var(--text-2);
+}
+.set-notice.warn {
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+}
 .set-title {
   font-size: .78rem; font-weight: 700; color: var(--text-3);
   letter-spacing: .08em; margin: 20px 4px 8px;
@@ -2636,22 +2644,28 @@ self.onmessage = function (e) {
     const savedAt = ui.savedAt ? fmtModified(ui.savedAt) : '—';
 
     if (!state.fsSupported) {
-      syncBox.append(setRow('写回 HTML', '当前浏览器不支持直接写回文件，已使用本地缓存持久化（刷新与下次打开均可恢复）',
-        h('span', { class: 'sync-state off' }, h('span', { class: 'dot' }), h('span', { text: '本地缓存' }))));
+      syncBox.append(
+        h('div', { class: 'set-notice warn', text: '当前浏览器不支持写回文件：数据保存在本机浏览器缓存中，index.html 文件不会变化。换浏览器或清理浏览器数据前，请先导出备份。' }),
+        setRow('写回 HTML', '需要 Chrome / Edge 的 File System Access 能力',
+          h('span', { class: 'sync-state off' }, h('span', { class: 'dot' }), h('span', { text: '仅本地缓存' }))));
     } else if (!state.fileHandle) {
-      syncBox.append(setRow('写回 HTML', '绑定本页面的 HTML 文件后，数据会自动写回文件内嵌数据区',
-        h('button', { class: 'btn btn-sm btn-primary', text: '绑定 HTML 文件', onClick: async () => { if (await bindHtmlFile()) render(); } })));
+      syncBox.append(
+        h('div', { class: 'set-notice warn', text: '尚未绑定文件：新增数据只保存在本机浏览器缓存里，index.html 文件大小不会变化。点击下方「绑定 HTML 文件」选择本页面后，数据才会真正内嵌写进 HTML（绑定成功瞬间即写入一次）。' }),
+        setRow('写回 HTML', '绑定后每次改动自动写入所选 HTML 的内嵌数据区',
+          h('button', { class: 'btn btn-sm btn-primary', text: '绑定 HTML 文件', onClick: async () => { if (await bindHtmlFile()) render(); } })));
     } else if (state.needPermission) {
-      syncBox.append(setRow('写回 HTML', '文件句柄有效，但需要重新授权',
-        h('button', { class: 'btn btn-sm btn-primary', text: '重新授权', onClick: async () => { if (await reauthorize()) render(); } })));
+      syncBox.append(
+        h('div', { class: 'set-notice warn', text: '浏览器已回收该文件的访问权限，暂时不会写回 HTML（数据仍安全保存在本地缓存中）。' }),
+        setRow('写回 HTML', '文件句柄有效，但需要重新授权',
+          h('button', { class: 'btn btn-sm btn-primary', text: '重新授权', onClick: async () => { if (await reauthorize()) render(); } })));
     } else {
-      syncBox.append(setRow('写回 HTML', '数据变更将自动保存到所绑定的文件',
+      syncBox.append(setRow('写回 HTML', '每次改动约 0.5 秒后自动写回「' + (state.fileHandle.name || '所选文件') + '」的数据区（文件大小随之变化）',
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
           h('span', { class: 'sync-state ok' }, h('span', { class: 'dot' }), h('span', { text: '自动同步中' })),
           h('button', { class: 'btn btn-sm btn-ghost', text: '解绑', onClick: async () => { await unbindHtmlFile(); render(); } }))));
     }
     syncBox.append(
-      setRow('上次保存', '本地镜像写入时间', h('span', { class: 'val mono', text: savedAt })),
+      setRow('上次保存', '浏览器本地镜像写入时间（绑定文件后与写回同步更新）', h('span', { class: 'val mono', text: savedAt })),
       setRow('下载 HTML 副本', '生成一份包含当前数据的完整 HTML（可直接分发/备份）',
         h('button', { class: 'btn btn-sm', text: '生成并下载', onClick: downloadHtmlCopy })),
       setRow('导出备份', '导出 .adb 数据库文件', h('button', { class: 'btn btn-sm', text: '导出', onClick: exportBackup })),

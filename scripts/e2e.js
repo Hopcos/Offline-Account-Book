@@ -246,6 +246,16 @@ async function main() {
     console.log('[4/13] 设置页与主题');
     await cdp.eval(`location.hash = '#/settings'`);
     await cdp.waitFor(`!!document.querySelector('.set-section')`, 5000, '设置页');
+    // 未绑定文件时必须明确提示"数据存于本地缓存、index.html 不会变化"，且给出绑定入口
+    const unboundHint = await cdp.eval(`(function(){
+      var n = document.querySelector('.set-notice.warn');
+      var btn = [...document.querySelectorAll('.set-row .btn')].find(b => b.textContent === '绑定 HTML 文件');
+      return JSON.stringify({ hint: n ? n.textContent : '', hasBtn: !!btn });
+    })()`);
+    const uh = JSON.parse(unboundHint);
+    uh.hint.indexOf('index.html 文件大小不会变化') >= 0 && uh.hasBtn
+      ? ok('未绑定时明确提示数据位置与绑定入口')
+      : fail('未绑定提示', unboundHint);
     await cdp.eval(`
       [...document.querySelectorAll('.seg-btn')].find(b => b.textContent === '深色').click();
     `);
