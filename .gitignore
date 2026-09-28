@@ -4,3 +4,4 @@ node_modules/
 .edge-test/
 .e2e-data.html
 *.log
+.cert/

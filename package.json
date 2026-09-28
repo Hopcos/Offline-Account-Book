@@ -7,7 +7,9 @@
     "build": "node build.js",
     "check": "node scripts/check.js",
     "e2e": "node scripts/e2e.js",
-    "test": "node build.js && node scripts/check.js && node scripts/e2e.js"
+    "test": "node build.js && node scripts/check.js && node scripts/e2e.js",
+    "serve": "node scripts/lan-serve.js --http",
+    "lan": "node scripts/lan-serve.js"
   },
   "keywords": ["account-book", "sqlite", "webassembly", "wasm", "worker", "offline", "pwa"],
   "license": "MIT"

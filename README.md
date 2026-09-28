@@ -62,6 +62,8 @@
 ### 方式 2：本地静态服务（推荐，文件写回体验最佳）
 ```bash
 # 任选其一
+npm run serve          # 本仓库自带（零依赖），http://<电脑IP>:8000
+npm run lan            # 局域网 HTTPS（需先装 mkcert），https://<电脑IP>:8443 —— 手机可安装到桌面
 npx serve .
 python -m http.server 8000
 ```
@@ -188,7 +190,8 @@ offline-account-book/
 │   └── sql-wasm.wasm          # SQLite WebAssembly 二进制（655 KB）
 ├── scripts/
 │   ├── check.js               # 静态冒烟：结构/语法/WASM 真实读写/写回正则
-│   └── e2e.js                 # 端到端：无头 Edge + CDP 驱动 8 步完整业务流
+│   ├── e2e.js                 # 端到端：无头 Edge + CDP 驱动 13 步完整业务流
+│   └── lan-serve.js           # 局域网 HTTP/HTTPS 服务器（手机端一键安装的地址方案）
 └── README.md
 ```
 
@@ -254,8 +257,19 @@ offline-account-book/
 | 手机普通 http / file:// 打开 | 自检第 1 项标红并给出解决方案（改用 HTTPS 地址或本机 localhost） |
 | 不提供安装接口的浏览器 | 自检第 2 项标红 —— 网页无法绕过系统安全限制写桌面图标（任何网页都做不到），需换支持的浏览器 |
 
-手机上部署建议：把 `index.html` 放到任意 HTTPS 静态空间（GitHub Pages、对象存储等）即可满足一键直装条件；
-或本机 `npx serve .` 后通过 localhost 访问。
+**手机安装（三条路线，任选其一）** —— 浏览器只允许 HTTPS / localhost 触发安装，这是内核级安全门槛，网页无法绕过；下列方案都能让它满足：
+
+| 路线 | 操作 | 特点 |
+| --- | --- | --- |
+| ① 免费 HTTPS 托管（**最简单**） | 仓库目录执行 `npx surge ./`（按提示填个邮箱，几十秒得到一个 `https://xxx.surge.sh` 地址），手机打开该地址 | 手机随时可装可用；只发布**不含数据的初始 index.html**，账目数据留在手机本地，不会上传 |
+| ② 局域网 HTTPS | 电脑装 mkcert（`winget install FiloSottile.mkcert`）后执行 `npm run lan`，手机同 WiFi 打开输出的 `https://电脑IP:8443/index.html`（首次把 `.cert/rootCA.pem` 传到手机信任，或警告页点继续访问） | 全内网，不出户；需电脑开机供服务 |
+| ③ 安卓 + USB 数据线 | `npm run serve` 后电脑执行 `adb reverse tcp:8000 tcp:8000`，手机浏览器打开 `http://localhost:8000/index.html`（localhost=安全地址） | 零证书；需开 USB 调试 |
+
+满足后：**设置 → 添加到桌面 → 立即添加**，直接弹系统安装框，一步进桌面，全程不需要浏览器菜单。
+
+> - Chrome 有"用户互动门槛"：首次打开页面请停留约 30 秒再点添加，否则自检第 3 项可能仍未就绪；
+> - 数据跟着**地址（origin）**走：换了 URL（换托管/换 IP/localhost↔局域网）等于新环境，旧数据看不到——迁移请用设置页「导出备份 → 导入备份」；
+> - 手机端没有 File System Access API，无法把数据写回服务器上的 HTML 文件；需要整包带走时用「下载 HTML 副本」或「导出备份」。
 
 实现要点：
 - **动态 Web App Manifest**：运行时按当前 LOGO 与主题生成（blob URL），包含 `name/short_name = 个人记账`、

@@ -370,14 +370,17 @@
     let conclusion;
     if (allOk) {
       conclusion = '环境已就绪：请再点一次「立即添加」，将直接弹出系统安装确认框（无需任何浏览器菜单），完成后桌面出现「' +
-        APP_NAME + '」与你设置的 LOGO。';
+        APP_NAME + '」与你设置的 LOGO。若页面是刚打开的，Chrome 可能要求先停留约 30 秒（用户互动门槛），稍等再点即可。';
     } else if (/iPhone|iPad|iPod/.test(ua)) {
       conclusion = 'iOS 不向网页开放直接安装接口（系统限制，非本应用问题）。Safari：「分享」→「添加到主屏幕」；桌面名称与 LOGO 仍由本应用配置决定。';
     } else if (location.protocol === 'file:') {
-      conclusion = '本地文件方式无法安装。用 npx serve . 以本地服务打开（或放到任意 HTTPS 地址）后，本按钮即变为一键直装：点击直接弹出系统安装框，一步进入桌面，全程无需浏览器菜单 —— 应用名「' +
+      conclusion = '本地文件方式无法安装。电脑上用 npm run serve（或 npx serve .）以 localhost 打开即可一键直装；若要装到手机桌面，见设置页下方"手机安装路线"或 README。应用名「' +
         APP_NAME + '」，图标为设置页的 LOGO。';
     } else if (!checks[0].ok) {
-      conclusion = '请通过 HTTPS 地址打开本页（任意静态托管均可），或本机使用 localhost。满足后点击即可直接弹出系统安装框，一步到桌面。';
+      conclusion = '只差一个"安全地址"（HTTPS/localhost 是浏览器硬性门槛，任何网页都绕不过）。电脑上任选一条路线，之后手机重新打开本页再点本按钮，即可一步装到桌面：' +
+        '① npx surge ./ 一键发布到免费 HTTPS（最简单）；' +
+        '② 本仓库运行 npm run lan，手机访问 https://电脑IP:8443（需信任一次根证书 .cert/rootCA.pem）；' +
+        '③ 安卓手机+数据线：npm run serve 后执行 adb reverse tcp:8000 tcp:8000，手机打开 http://localhost:8000。';
     } else {
       conclusion = '当前浏览器未向网页开放「直接安装」接口 —— 任何网页都无法绕过系统安全限制直接写入桌面图标，只能换用支持标准安装接口的浏览器（Chrome / Edge / Samsung Internet 等）；届时本按钮将一键直装，全程无需浏览器菜单。';
     }
