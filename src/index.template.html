@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<!-- “添加到桌面”应用标识：安装后的名称与图标由这里的元数据 + 运行时动态 Manifest 决定 -->
+<meta name="application-name" content="个人记账">
+<meta name="apple-mobile-web-app-title" content="个人记账">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f4f6f8">
+<link rel="manifest" id="manifest-link">
+<link rel="apple-touch-icon" id="apple-touch-icon" href="">
+<meta name="description" content="离线单文件记账本 —— SQLite(WebAssembly) 嵌入式数据库，纯浏览器运行，移动端优先。">
+<meta name="adb-saved-at" content="">
+<title>个人记账</title>
+<script>
+/* 首屏快照：从本地缓存恢复外观设置，避免主题闪烁（FOUC） */
+(function () {
+  try {
+    var ui = JSON.parse(localStorage.getItem('adb.ui.v1') || '{}');
+    var s = ui.settings;
+    var root = document.documentElement;
+    if (s) {
+      var theme = s.theme || 'auto';
+      if (theme === 'auto') {
+        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      root.dataset.theme = theme;
+      root.dataset.font = s.font || 'system';
+      root.dataset.width = s.pageWidth || 'normal';
+      root.style.setProperty('--fs', (s.fontSize || 16) + 'px');
+      root.style.setProperty('--lh', String(s.lineHeight || 1.6));
+      if (s.currency) root.style.setProperty('--currency', String(s.currency));
+      root.style.colorScheme = theme;
+    }
+    if (ui.logo) root.dataset.hasLogo = '1';
+  } catch (e) { /* 忽略缓存解析错误 */ }
+})();
+</script>
+<style>{{APP_CSS}}</style>
+</head>
+<body>
+
+<!-- 启动画面 -->
+<div id="boot" class="boot" role="status" aria-live="polite">
+  <div class="boot-logo" aria-hidden="true">
+    <svg viewBox="0 0 48 48" width="56" height="56">
+      <rect width="48" height="48" rx="11" fill="var(--accent)"/>
+      <path d="M24 15.5c-3-2.4-7-3.4-11-3v19c4-.4 8 .6 11 3 3-2.4 7-3.4 11-3v-19c-4-.4-8 .6-11 3z" fill="#fff" opacity=".95"/>
+      <path d="M24 15.5v19" stroke="var(--accent)" stroke-width="1.6"/>
+      <path d="M17.5 19.5h4M17.5 23.5h4M26.5 19.5h4M26.5 23.5h4" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <p id="boot-text">正在启动数据引擎（SQLite · WebAssembly）…</p>
+  <div id="boot-error" class="boot-error" hidden>
+    <p id="boot-error-text"></p>
+    <button class="btn btn-primary" onclick="location.reload()">重新加载</button>
+  </div>
+</div>
+
+<!-- 应用主框架 -->
+<div id="app" class="app" hidden>
+  <header id="app-header" class="app-header"></header>
+  <main id="view" class="view"></main>
+  <button id="fab" class="fab" type="button" aria-label="新建" hidden>
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  </button>
+</div>
+
+<div id="overlay-root"></div>
+<div id="toast-root" aria-live="polite"></div>
+
+<!-- ================= 数据区：应用数据（SQLite 数据库）持久化写回此处 ================= -->
+<script id="adb-data" type="text/plain"></script>
+
+<!-- SQL.js：SQLite 编译为 WebAssembly 的运行时（内嵌，无需网络） -->
+<script id="adb-sqljs" type="text/plain">{{SQLJS_GLUE}}</script>
+<script id="adb-wasm" type="text/plain">{{SQL_WASM_B64}}</script>
+
+<!-- 数据服务 Worker（独立线程）源码 -->
+<script id="adb-worker" type="text/plain">{{WORKER_SRC}}</script>
+
+<!-- 主程序 -->
+<script>{{APP_JS}}</script>
+</body>
+</html>
