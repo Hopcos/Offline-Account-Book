@@ -236,14 +236,26 @@ offline-account-book/
 
 ### 添加到桌面（安装为「个人记账」App）
 
-入口：**设置 → 添加到桌面 → 「立即添加 / 添加」**。
+入口：**设置 → 添加到桌面 → 「立即添加 / 添加」**。**点击后直接调起系统安装确认框，一步进桌面，
+全程不经过任何浏览器菜单**（这是浏览器向网页开放的唯一"直接安装"通道 `beforeinstallprompt`，
+应用已做完整捕获 + 迟到事件轮询 + 系统框取消重试）。
+
+**能力自检**：当环境不满足一键直装时，按钮会弹出 4 项实时自检清单，准确指出卡点：
+
+1. 页面地址满足安装条件（**HTTPS / localhost**；`file://` 与普通 http 均不满足）
+2. 浏览器提供「直接安装」标准接口（Chrome / Edge / Samsung ✅；**iOS 任何浏览器都不提供 —— 系统限制**）
+3. 系统安装程序已就绪（`beforeinstallprompt` 已捕获）
+4. 应用描述已生成（名称「个人记账」+ 设置页 LOGO 图标）
 
 | 环境 | 行为 |
 | --- | --- |
-| Chrome / Edge 等 Chromium（http/localhost 打开） | 应用捕获 `beforeinstallprompt`，按钮变为**「立即添加」**，点击弹出系统安装确认；安装后桌面出现 **个人记账**，图标为你设置的 LOGO |
-| iOS Safari | 指引：底部「分享」→「添加到主屏幕」；名称取 `apple-mobile-web-app-title=个人记账`，图标取 `apple-touch-icon`（LOGO 栅格化 PNG） |
-| Android 浏览器 | 指引：菜单 ⋮ →「添加到主屏幕 / 安装应用」 |
-| 本地文件（file://）直接打开 | 浏览器安全策略禁止安装 → 弹层给出指引：用 `npx serve .` 以本地服务器打开后即可安装，或用浏览器菜单"创建快捷方式" |
+| Android Chrome / Edge / Samsung（https 或 localhost 打开） | **一键直装**：点击 → 系统安装框 → 桌面出现「个人记账」+ LOGO 图标 |
+| iOS Safari | 系统不开放直接安装接口 → 自检会明确指出：「分享 → 添加到主屏幕」，名称与 LOGO 仍取自本应用配置 |
+| 手机普通 http / file:// 打开 | 自检第 1 项标红并给出解决方案（改用 HTTPS 地址或本机 localhost） |
+| 不提供安装接口的浏览器 | 自检第 2 项标红 —— 网页无法绕过系统安全限制写桌面图标（任何网页都做不到），需换支持的浏览器 |
+
+手机上部署建议：把 `index.html` 放到任意 HTTPS 静态空间（GitHub Pages、对象存储等）即可满足一键直装条件；
+或本机 `npx serve .` 后通过 localhost 访问。
 
 实现要点：
 - **动态 Web App Manifest**：运行时按当前 LOGO 与主题生成（blob URL），包含 `name/short_name = 个人记账`、

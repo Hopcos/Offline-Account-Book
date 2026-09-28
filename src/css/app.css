@@ -452,6 +452,20 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   background: var(--warn-soft);
   border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
 }
+
+/* 添加到桌面 · 能力自检 */
+.install-checks { display: grid; gap: 8px; margin: 2px 0 12px; }
+.install-check {
+  display: flex; gap: 9px; align-items: flex-start;
+  font-size: .84rem; line-height: 1.55; color: var(--text-2);
+}
+.install-check .ico {
+  flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .7rem; font-weight: 700; color: #fff; margin-top: 2px;
+}
+.install-check.ok .ico { background: var(--ok); }
+.install-check.bad .ico { background: var(--warn); }
 .set-title {
   font-size: .78rem; font-weight: 700; color: var(--text-3);
   letter-spacing: .08em; margin: 20px 4px 8px;

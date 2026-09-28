@@ -279,37 +279,119 @@
     pwaTimer = setTimeout(() => { pwaTimer = null; updatePwaMeta().catch((e) => console.warn('[pwa]', e)); }, 300);
   }
 
-  /** 「添加到桌面」点击：已安装→提示；可安装→系统安装流；否则→分平台指引 */
+  /** 等待系统安装事件：部分浏览器在页面加载后较晚才派发 beforeinstallprompt */
+  function waitForInstallPrompt(ms) {
+    if (deferredInstall) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      let done = false;
+      const t = setTimeout(() => finish(false), ms);
+      const finish = (v) => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        resolve(v);
+      };
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstall = e;
+        finish(true);
+      }, { once: true });
+    });
+  }
+
+  /**
+   * 「添加到桌面」点击：全程不经过任何浏览器菜单 ——
+   * 可安装 → 等待/捕获系统安装事件后直接 prompt()（系统级安装框一步到桌面）；
+   * 不可安装 → 弹出能力自检，指出卡住的具体环节。
+   */
   async function onInstallClick() {
-    const st = installState();
-    if (st === 'installed') { toast('已在桌面'); return; }
-    if (st === 'ready' && deferredInstall) {
+    if (isInstalled()) { toast('已在桌面'); return; }
+    if (!deferredInstall) {
+      toast('正在检测系统安装能力…');
+      await waitForInstallPrompt(2500);            // 兜底等待迟到的系统事件
+    }
+    if (deferredInstall) {
       const promptEvent = deferredInstall;
       deferredInstall = null;
       try {
-        promptEvent.prompt();
+        promptEvent.prompt();                       // 直接调起系统安装确认框
         const choice = await promptEvent.userChoice;
         if (choice && choice.outcome === 'accepted') toast('正在添加到桌面…');
-      } catch (e) { console.warn(e); }
+      } catch (e) {
+        console.warn('[install]', e);
+        openInstallGuide();
+        return;
+      }
       if (state.route && state.route.name === 'settings') render();
       return;
     }
-    openInstallHelp();
+    openInstallGuide();
   }
 
-  function openInstallHelp() {
+  /** 实时能力自检：逐条说明为什么能/不能"一键直接装到桌面" */
+  function installChecks() {
+    const host = location.hostname;
+    const secureOk = location.protocol === 'https:' ||
+      host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+    const apiOk = 'onbeforeinstallprompt' in window;
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    return [
+      {
+        ok: secureOk,
+        okText: '页面地址满足安装条件（HTTPS / localhost）',
+        badText: location.protocol === 'file:'
+          ? '以本地文件（file://）方式打开 —— 系统禁止在此模式下安装'
+          : '页面不是 HTTPS —— 系统安装接口仅在安全地址开放'
+      },
+      {
+        ok: apiOk,
+        okText: '浏览器提供「直接安装」标准接口（beforeinstallprompt）',
+        badText: ios
+          ? 'iOS 系统不向网页开放任何直接安装接口（仅可手动：Safari 分享 → 添加到主屏幕）'
+          : '该浏览器未向网页开放直接安装接口（换用 Chrome / Edge / Samsung 等即可一键直装）'
+      },
+      {
+        ok: !!deferredInstall,
+        okText: '系统安装程序已就绪（点击后直接弹出系统安装框）',
+        badText: '系统安装程序未就绪（受地址、浏览器或安装条件限制）'
+      },
+      {
+        ok: !!manifestJson,
+        okText: '应用描述已生成：名称「' + APP_NAME + '」+ 设置页 LOGO 图标',
+        badText: '应用描述（Manifest）尚未生成'
+      }
+    ];
+  }
+
+  function openInstallGuide() {
+    const checks = installChecks();
+    const allOk = checks.every((c) => c.ok);
     const ua = navigator.userAgent;
-    let steps;
-    if (/iPhone|iPad|iPod/.test(ua)) {
-      steps = 'Safari：点击底部「分享」按钮 → 选择「添加到主屏幕」→ 确认添加。桌面将出现「' + APP_NAME + '」与你设置的 LOGO。';
-    } else if (/Android/i.test(ua)) {
-      steps = '浏览器菜单（右上角 ⋮）→「添加到主屏幕」或「安装应用」→ 确认。桌面将出现「' + APP_NAME + '」与你设置的 LOGO。';
+    let conclusion;
+    if (allOk) {
+      conclusion = '环境已就绪：请再点一次「立即添加」，将直接弹出系统安装确认框（无需任何浏览器菜单），完成后桌面出现「' +
+        APP_NAME + '」与你设置的 LOGO。';
+    } else if (/iPhone|iPad|iPod/.test(ua)) {
+      conclusion = 'iOS 不向网页开放直接安装接口（系统限制，非本应用问题）。Safari：「分享」→「添加到主屏幕」；桌面名称与 LOGO 仍由本应用配置决定。';
     } else if (location.protocol === 'file:') {
-      steps = '当前以本地文件（file://）方式打开，浏览器不允许直接安装为桌面应用。请先通过本地服务器访问（例如在目录中执行 npx serve .），或使用浏览器菜单中的「安装应用 / 创建快捷方式」。安装后的名称为「' + APP_NAME + '」，图标为设置页中的 LOGO。';
+      conclusion = '本地文件方式无法安装。用 npx serve . 以本地服务打开（或放到任意 HTTPS 地址）后，本按钮即变为一键直装：点击直接弹出系统安装框，一步进入桌面，全程无需浏览器菜单 —— 应用名「' +
+        APP_NAME + '」，图标为设置页的 LOGO。';
+    } else if (!checks[0].ok) {
+      conclusion = '请通过 HTTPS 地址打开本页（任意静态托管均可），或本机使用 localhost。满足后点击即可直接弹出系统安装框，一步到桌面。';
     } else {
-      steps = '点击浏览器右上角菜单 →「安装应用 / 将此页面安装为应用 / 创建快捷方式」。安装后桌面将显示「' + APP_NAME + '」与你设置的 LOGO。';
+      conclusion = '当前浏览器未向网页开放「直接安装」接口 —— 任何网页都无法绕过系统安全限制直接写入桌面图标，只能换用支持标准安装接口的浏览器（Chrome / Edge / Samsung Internet 等）；届时本按钮将一键直装，全程无需浏览器菜单。';
     }
-    openModal({ title: '添加到桌面', message: steps, confirmText: '知道了', hideCancel: true });
+    openModal({
+      title: '添加到桌面',
+      confirmText: '知道了',
+      hideCancel: true,
+      extra: h('div', { class: 'install-guide' },
+        h('div', { class: 'install-checks' },
+          checks.map((c) => h('div', { class: 'install-check ' + (c.ok ? 'ok' : 'bad') },
+            h('span', { class: 'ico', text: c.ok ? '✓' : '!' }),
+            h('span', { text: c.ok ? c.okText : c.badText })))),
+        h('p', { text: conclusion }))
+    });
   }
 
   // 跟随系统主题时监听系统变化
@@ -386,7 +468,7 @@
     get lastError() { return lastError; },
     get toasts() { return toastLog.slice(-5); },
     get stats() { return { flushCount, lsCount, schedCount }; },
-    get install() { return { state: installState(), name: APP_NAME }; },
+    get install() { return { state: installState(), name: APP_NAME, checks: installChecks() }; },
     flush: () => flushPersist()
   };
 
@@ -715,9 +797,10 @@
       const cancelBtn = h('button', { class: 'btn', text: opt.cancelText || '取消', onClick: () => close(false) });
 
       const body = h('div', { class: 'modal-body' },
-        h('h3', { text: opt.title || '确认' }),
-        h('p', { class: opt.danger ? 'danger-text' : '', text: opt.message || '' })
+        h('h3', { text: opt.title || '确认' })
       );
+      if (opt.message) body.append(h('p', { class: opt.danger ? 'danger-text' : '', text: opt.message }));
+      if (opt.extra) body.append(opt.extra);
       if (opt.requireText) {
         input = h('input', { class: 'input', type: 'text', autocapitalize: 'none', spellcheck: 'false',
           placeholder: `输入 ${opt.requireText}`,

@@ -470,11 +470,19 @@ async function main() {
       `[...document.querySelectorAll('.set-row .btn')].some(b => b.textContent === '添加' || b.textContent === '立即添加')`,
       5000, '添加到桌面按钮');
     const ist = await cdp.eval(`__ADB__.install.state`);
-    ist === 'manual' ? ok('file:// 下安装状态 = manual（降级为指引）') : fail('安装状态', ist);
+    ist === 'manual' ? ok('file:// 下安装状态 = manual（弹出自检指引）') : fail('安装状态', ist);
     await cdp.eval(`document.getElementById('install-btn').click()`);
     await cdp.waitFor(`document.querySelector('.modal-body h3') && document.querySelector('.modal-body h3').textContent === '添加到桌面'`, 3000, '指引弹层');
     const helpText = await cdp.eval(`document.querySelector('.modal-body p').textContent`);
     helpText.indexOf('个人记账') >= 0 ? ok('指引文案包含应用名「个人记账」') : fail('指引文案', helpText.slice(0, 60));
+    // 能力自检：4 项清单，file:// 环境下"地址条件"必须标红（指出具体卡点）
+    const checks = JSON.parse(await cdp.eval(`(function(){
+      var rows = [...document.querySelectorAll('.install-check')].map(r => r.className);
+      return JSON.stringify(rows);
+    })()`));
+    checks.length === 4 && /^install-check bad/.test(checks[0])
+      ? ok('能力自检 4 项，准确定位 file:// 卡点')
+      : fail('能力自检', JSON.stringify(checks));
     await cdp.eval(`[...document.querySelectorAll('.modal-foot .btn')].find(b => b.textContent === '知道了').click()`);
     await cdp.waitFor(`!document.querySelector('.modal')`, 3000, '关闭指引');
 
@@ -511,6 +519,12 @@ async function main() {
     appleHref.indexOf('data:image/png') === 0
       ? ok('apple-touch-icon 已指向 LOGO PNG')
       : fail('apple-touch-icon', String(appleHref).slice(0, 50));
+    // 一键直装能力：等 beforeinstallprompt 就绪，自检 4 项必须全部通过
+    await cdp.waitFor(`__ADB__.install.state === 'ready'`, 6000, '系统安装事件就绪');
+    const httpChecks = JSON.parse(await cdp.eval(`JSON.stringify(__ADB__.install.checks)`));
+    httpChecks.length === 4 && httpChecks.every(c => c.ok)
+      ? ok('能力自检全绿：点击即可直接弹出系统安装框（一键到桌面）')
+      : fail('能力自检', JSON.stringify(httpChecks));
     const t13 = await cdp.eval(`document.title`);
     t13.indexOf('个人记账') >= 0 ? ok('页面标题为「个人记账」') : fail('页面标题', t13);
     let instErrs = [];
